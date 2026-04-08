@@ -1,0 +1,106 @@
+name: scheme-advisor-env
+version: "1.0.0"
+description: >
+  An RL environment where AI agents learn to advise Indian citizens on government welfare
+  scheme eligibility and required documents. The agent must profile a citizen, identify
+  all schemes they qualify for (without hallucinating ineligible ones), and specify
+  the correct documentation required — simulating a real-world task performed by
+  Common Service Centre (CSC) operators and social welfare workers across India.
+
+author: "Team SchemeAdvisor"
+license: "Apache-2.0"
+
+tags:
+  - openenv
+  - real-world
+  - government
+  - welfare
+  - india
+  - classification
+  - multi-task
+  - graded-reward
+
+tasks:
+  - id: easy_farmer
+    difficulty: easy
+    description: "Single rural farmer — identify PM-KISAN and related schemes"
+  - id: medium_bpl_woman
+    difficulty: medium
+    description: "BPL rural woman with multiple overlapping scheme eligibilities"
+  - id: hard_urban_vendor_student
+    difficulty: hard
+    description: "Urban ST street vendor with complex multi-scheme scenario"
+
+action_space:
+  type: structured
+  fields:
+    action_type:
+      type: string
+      enum: [submit_profile, query_scheme, request_documents]
+    profile:
+      type: object
+      description: Citizen profile key-value pairs
+    scheme_id:
+      type: string
+      description: Government scheme identifier
+    document_request:
+      type: array
+      items: string
+
+observation_space:
+  type: structured
+  fields:
+    done: bool
+    reward: float_or_null
+    task_id: string
+    citizen_context: string
+    feedback: string
+    eligible_schemes: list
+    scheme_details: object_or_null
+    missing_profile_fields: list
+    steps_taken: int
+    max_steps: int
+    partial_score: float
+
+reward:
+  range: [0.0, 1.0]
+  components:
+    - name: profile_completeness
+      weight: 0.30
+      description: Fraction of required profile fields correctly submitted
+    - name: scheme_recall
+      weight: 0.30
+      description: Fraction of truly eligible schemes identified
+    - name: scheme_precision
+      weight: 0.20
+      description: Penalty for hallucinating ineligible schemes
+    - name: document_f1
+      weight: 0.20
+      description: F1 score of required documents vs ground truth
+
+episode:
+  max_steps: 10
+  terminal_condition: "request_documents action or max_steps reached"
+
+deployment:
+  platform: huggingface_spaces
+  space_sdk: docker
+  port: 7860
+
+endpoints:
+  - path: /reset
+    method: POST
+  - path: /step
+    method: POST
+  - path: /state
+    method: GET
+  - path: /health
+    method: GET
+  - path: /tasks
+    method: GET
+  - path: /grader
+    method: POST
+  - path: /baseline
+    method: POST
+  - path: /ws
+    protocol: websocket
